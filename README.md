@@ -11,17 +11,42 @@ Built an AI-based collision detection system using **Python**, **Machine Learnin
   - Optical flow for motion detection
   - Histogram analysis
 - **Machine Learning Classification**: Random Forest classifier trained on extracted visual features
+- **Severity-Based Emergency Response**: 
+  - **MAJOR**: Driver + Family + Hospital (Ambulance) + Police + Logging
+  - **MODERATE**: Driver + Family + Police + Logging
+  - **MINOR**: Driver + Family + Logging
+  - **NORMAL**: System monitoring only
 - **Automated Alerts**: Triggers alert notifications when collision risk is detected
-- **Emergency Response Simulation**: Activates automated emergency protocols:
-  - Automatic braking engagement
-  - Hazard light activation
-  - Emergency services notification
-  - Incident recording
+- **Emergency Services Integration**: Contacts hospital, police, and family members based on severity
+- **Accident Logging**: Comprehensive logging with JSON export
 - **Visual Feedback**: Real-time visualization with risk scores and collision warnings
 
 ## 📋 System Architecture
 
 ### Core Components
+
+#### 1. **Collision Detector** (`collision_detector.py`)
+- Video-based collision detection using OpenCV
+- Sensor-based collision detection (accelerometer/IMU data)
+- Severity classification based on impact force and deceleration
+- Integration with emergency response system
+
+#### 2. **Emergency Response System** (`emergency_response.py`)
+- Handles collision severity levels (NORMAL, MINOR, MODERATE, MAJOR)
+- Manages emergency contacts (family members)
+- Sends notifications to:
+  - **Driver**: Real-time alerts with severity information
+  - **Family Members**: SMS and Email notifications
+  - **Hospital**: Emergency ambulance requests (MAJOR only)
+  - **Police**: Accident notifications and inspection requests (MODERATE & MAJOR)
+- Maintains detailed accident logs in JSON format
+
+#### 3. **Example Usage** (`example_usage.py`)
+- Demonstrates all 4 collision severity levels
+- Shows emergency contact registration
+- Illustrates accident logging and history tracking
+
+### Legacy Components
 
 1. **Feature Extraction** (`extract_features_from_frame`):
    - Edge density (Canny edge detection)
@@ -67,45 +92,143 @@ pip install opencv-python scikit-learn numpy
 
 ## 💻 Usage
 
-### Basic Usage - Real-Time Detection with Webcam
+### Emergency Response System
+
+#### 1. Initialize the System
 
 ```python
-from collision_detection_system import CollisionDetectionSystem
+from emergency_response import (
+    EmergencyResponseSystem,
+    CollisionSeverity,
+    Location,
+    EmergencyContact
+)
 
-# Initialize the system
-collision_detector = CollisionDetectionSystem()
+# Create system instance
+vehicle_id = "VEHICLE_ABC_12345"
+driver_info = {
+    "name": "John Doe",
+    "phone": "+1-555-0101",
+    "email": "john.doe@example.com",
+    "license": "DL12345678"
+}
 
-# Run real-time detection (0 = default webcam)
-collision_detector.run_real_time_detection(0)
+system = EmergencyResponseSystem(vehicle_id, driver_info)
 ```
 
-### Using Video File
+#### 2. Register Emergency Contacts
 
 ```python
-collision_detector = CollisionDetectionSystem()
-collision_detector.run_real_time_detection("path/to/video.mp4")
+# Add family members
+family_contact = EmergencyContact(
+    name="Jane Doe",
+    phone="+1-555-0102",
+    email="jane.doe@example.com",
+    relationship="Spouse"
+)
+system.register_emergency_contact(family_contact)
 ```
 
-### Training with Custom Data
+#### 3. Handle Collision Events
 
 ```python
-import numpy as np
+from emergency_response import Location
 
-# Prepare training data
-X_train = np.array([...])  # Feature vectors
-y_train = np.array([...])  # Labels (0: no collision, 1: collision risk)
+location = Location(
+    latitude=40.7128,
+    longitude=-74.0060,
+    address="5th Avenue and 34th Street, Manhattan, NY"
+)
 
-collision_detector = CollisionDetectionSystem()
-collision_detector.train_model(X_train, y_train)
-collision_detector.save_model("trained_model.pkl")
+collision_data = {
+    "impact_force": 85.5,
+    "vehicle_speed": 65,
+    "deceleration": 0.8,
+    "confidence": 0.98
+}
+
+# Handle major collision - triggers FULL emergency response
+result = system.handle_collision(
+    CollisionSeverity.MAJOR,
+    location,
+    collision_data
+)
 ```
 
-### Load Pre-trained Model
+### Collision Detection Integration
+
+#### Using Video-Based Detection
 
 ```python
-collision_detector = CollisionDetectionSystem(model_path="trained_model.pkl")
-collision_detector.run_real_time_detection(0)
+from collision_detector import CollisionDetector
+from emergency_response import EmergencyResponseSystem
+
+system = EmergencyResponseSystem(vehicle_id, driver_info)
+detector = CollisionDetector(system)
+
+# Detect from video
+result = detector.detect_collision_from_video("path/to/video.mp4")
+
+if result["collision_detected"]:
+    detector.trigger_emergency_response(result, location)
 ```
+
+#### Using Sensor-Based Detection
+
+```python
+# Detect from sensor data (accelerometer, gyroscope, etc.)
+sensor_data = {
+    "acceleration_x": 9.2,  # g-force
+    "acceleration_y": 0.5,
+    "acceleration_z": -0.1,
+    "velocity": 65,  # mph
+    "impact_detection": True,
+    "confidence": 0.95
+}
+
+result = detector.detect_collision_from_sensors(sensor_data)
+```
+
+### Run Full Example
+
+```bash
+python example_usage.py
+```
+
+This demonstrates all 4 collision severity levels with their respective emergency responses.
+
+## 🚨 Emergency Response Logic
+
+| Severity | Driver Alert | Family Members | Hospital & Ambulance | Police | Accident Log |
+|----------|:-----------:|:-------------:|:-------------------:|:------:|:-----------:|
+| **MAJOR** | ✅ | ✅ | ✅ CRITICAL | ✅ | ✅ |
+| **MODERATE** | ✅ | ✅ | ❌ | ✅ | ✅ |
+| **MINOR** | ✅ | ✅ | ❌ | ❌ | ✅ |
+| **NORMAL** | ❌ | ❌ | ❌ | ❌ | Monitoring |
+
+### Response Details
+
+**MAJOR Collision**:
+- Driver receives CRITICAL alert
+- All family members notified via SMS/Email
+- Hospital emergency ambulance requested
+- Police notified for accident inspection
+- Full accident details logged
+
+**MODERATE Collision**:
+- Driver receives alert
+- Family members notified
+- Police notified for inspection
+- Accident logged (NO hospital/ambulance)
+
+**MINOR Collision**:
+- Driver receives alert
+- Family members notified
+- Accident logged (NO police/hospital)
+
+**NORMAL (No Collision)**:
+- System continues monitoring
+- No emergency response triggered
 
 ## 🎮 Keyboard Controls
 
@@ -119,6 +242,9 @@ collision_detector.run_real_time_detection(0)
 | `n_estimators` | 100 | Number of trees in Random Forest |
 | `random_state` | 42 | Random seed for reproducibility |
 | `Canny edges` | (100, 200) | Edge detection thresholds |
+| `major_impact_force` | 60 | kN threshold for MAJOR severity |
+| `moderate_impact_force` | 30 | kN threshold for MODERATE severity |
+| `minor_impact_force` | 10 | kN threshold for MINOR severity |
 
 ## 🔍 Feature Vector Details
 
@@ -140,60 +266,73 @@ The system extracts 7 features from each frame:
 - **Predictions**: Binary classification + probability scores
 - **Serialization**: Pickle format for model persistence
 
-## 🚨 Alert System
-
-When collision risk is detected:
-- Displays visual warning with red border and "COLLISION RISK DETECTED!" message
-- Logs alert with timestamp and risk score
-- Triggers emergency response simulation in separate thread
-- Email alerts can be configured (SMTP setup required)
-
 ## 📈 Emergency Response Protocol
 
-The system simulates the following emergency actions:
+The system follows this decision tree:
 
 ```
-[EMERGENCY RESPONSE ACTIVATED]
-- Automatic braking engaged
-- Hazard lights activated
-- Emergency services notified
-- Recording incident for analysis
+Collision Detected?
+├─ YES ─→ Classify Severity
+│         ├─ MAJOR ──→ Driver + Family + Hospital + Police + Log
+│         ├─ MODERATE ──→ Driver + Family + Police + Log
+│         ├─ MINOR ──→ Driver + Family + Log
+│         └─ NORMAL (shouldn't reach here)
+└─ NO ──→ Continue Monitoring
+```
+
+## 📝 Accident Logging
+
+The system maintains a comprehensive accident history:
+
+```python
+# Get accident history
+history = system.get_accident_history()
+
+# Export accident log to JSON
+system.export_accident_log("accident_log.json")
 ```
 
 ## 🛠️ Advanced Usage
 
-### Adjusting Alert Threshold
+### Adjusting Severity Thresholds
 
 ```python
-collision_detector = CollisionDetectionSystem()
-collision_detector.alert_threshold = 0.65  # Lower threshold = more sensitive
+detector = CollisionDetector(system)
+detector.severity_thresholds = {
+    "major": {"impact_force": 70, "deceleration": 0.7},
+    "moderate": {"impact_force": 35, "deceleration": 0.35},
+    "minor": {"impact_force": 12, "deceleration": 0.12}
+}
 ```
 
 ### Custom Video Source
 
 ```python
 # Use IP camera
-collision_detector.run_real_time_detection("http://camera-ip:port/stream")
+result = detector.detect_collision_from_video("http://camera-ip:port/stream")
 
 # Use RTSP stream
-collision_detector.run_real_time_detection("rtsp://stream-url")
+result = detector.detect_collision_from_video("rtsp://stream-url")
 ```
 
-## 📝 Model Training Workflow
+### Collision History Analysis
 
-1. **Data Collection**: Gather labeled video frames
-2. **Feature Extraction**: Extract 7-dimensional feature vectors
-3. **Data Normalization**: Scale features using StandardScaler
-4. **Model Training**: Train Random Forest on labeled data
-5. **Model Persistence**: Save trained model for deployment
-6. **Real-Time Inference**: Load model for real-time detection
+```python
+history = system.get_accident_history()
+for entry in history:
+    print(f"Severity: {entry['severity']}")
+    print(f"Location: {entry['location']['address']}")
+    print(f"Responses: {', '.join(entry['responses_triggered'])}")
+```
 
 ## 🔐 Safety Considerations
 
-- **Threshold Tuning**: Adjust `alert_threshold` based on false positive tolerance
+- **Threshold Tuning**: Adjust severity thresholds based on vehicle type and usage
 - **Hardware Requirements**: Real-time processing requires decent GPU/CPU
 - **Video Input Quality**: Better video quality improves detection accuracy
 - **Model Retraining**: Periodically retrain with diverse driving scenarios
+- **Integration Testing**: Thoroughly test emergency contact notifications
+- **Compliance**: Ensure compliance with local regulations for emergency notifications
 
 ## 🐛 Troubleshooting
 
@@ -203,6 +342,8 @@ collision_detector.run_real_time_detection("rtsp://stream-url")
 | Slow performance | Reduce video resolution, use GPU acceleration |
 | High false positives | Increase `alert_threshold` value |
 | Model not found | Check model path and file exists |
+| Emergency contacts not notifying | Verify phone numbers and email addresses are valid |
+| Sensor data not detected | Check sensor data format matches required fields |
 
 ## 📚 Dependencies
 
